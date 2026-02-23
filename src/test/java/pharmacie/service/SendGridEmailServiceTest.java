@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Collections;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,33 +16,34 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.sendgrid.Request;
 import com.sendgrid.Response;
-import com.sendgrid.SendGrid;
 
 @ExtendWith(MockitoExtension.class)
 class SendGridEmailServiceTest {
 
     @Mock
-    private SendGrid sendGrid;
+    private SendGridEmailService.SendGridGateway sendGridGateway;
 
     private SendGridEmailService service;
 
     @BeforeEach
     void setUp() {
-        service = new SendGridEmailService(sendGrid, "from@test.local");
+        service = new SendGridEmailService(sendGridGateway, "from@test.local");
     }
 
     @Test
     void sendEmailAppelleApiSendGrid() throws IOException {
-        when(sendGrid.api(any(Request.class))).thenReturn(new Response(202, "", new HashMap<>()));
+        when(sendGridGateway.api(any(Request.class)))
+                .thenReturn(new Response(202, "", Collections.emptyMap()));
 
         service.sendEmail("to@test.local", "Sujet", "Contenu");
 
-        verify(sendGrid).api(any(Request.class));
+        verify(sendGridGateway).api(any(Request.class));
     }
 
     @Test
-    void sendEmailLeveUneExceptionSiSendGridRepondAvecErreur() throws IOException {
-        when(sendGrid.api(any(Request.class))).thenReturn(new Response(500, "", new HashMap<>()));
+    void sendEmailLeveUneExceptionSiSendGridRetourneUneErreurMetier() throws IOException {
+        when(sendGridGateway.api(any(Request.class)))
+                .thenReturn(new Response(400, "bad request", Collections.emptyMap()));
 
         assertThrows(IllegalStateException.class,
                 () -> service.sendEmail("to@test.local", "Sujet", "Contenu"));
@@ -50,9 +51,24 @@ class SendGridEmailServiceTest {
 
     @Test
     void sendEmailLeveUneExceptionSiErreurTechnique() throws IOException {
-        when(sendGrid.api(any(Request.class))).thenThrow(new IOException("network"));
+        when(sendGridGateway.api(any(Request.class))).thenThrow(new IOException("network"));
 
         assertThrows(IllegalStateException.class,
                 () -> service.sendEmail("to@test.local", "Sujet", "Contenu"));
+    }
+
+    @Test
+    void sendEmailLeveUneExceptionSiClientNonConfigure() {
+        SendGridEmailService unconfiguredService = new SendGridEmailService((SendGridEmailService.SendGridGateway) null,
+                "from@test.local");
+
+        assertThrows(IllegalStateException.class,
+                () -> unconfiguredService.sendEmail("to@test.local", "Sujet", "Contenu"));
+    }
+
+    @Test
+    void sendEmailLeveUneExceptionSiChampsManquants() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.sendEmail("", "Sujet", "Contenu"));
     }
 }

@@ -8,14 +8,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import pharmacie.service.SendGridEmailService;
 
-@WebMvcTest(SendEmailController.class)
+@SpringBootTest
+@AutoConfigureMockMvc
 class SendEmailControllerTest {
 
     @Autowired
@@ -34,11 +36,12 @@ class SendEmailControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/send-email")
+        mockMvc.perform(post("/mail/send")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Email envoye"));
+                .andExpect(jsonPath("$.message").value("Mail envoye a dest@test.local"));
 
         verify(sendGridEmailService).sendEmail("dest@test.local", "Demande devis", "Bonjour");
     }
@@ -57,10 +60,24 @@ class SendEmailControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/send-email")
+        mockMvc.perform(post("/mail/send")
                         .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Illegal state error"));
+    }
+
+    @Test
+    void sendEmailAccepteLesQueryParams() throws Exception {
+        mockMvc.perform(post("/mail/send")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .param("to", "query@test.local")
+                        .param("subject", "Sujet Query")
+                        .param("body", "Bonjour query"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Mail envoye a query@test.local"));
+
+        verify(sendGridEmailService).sendEmail("query@test.local", "Sujet Query", "Bonjour query");
     }
 }
