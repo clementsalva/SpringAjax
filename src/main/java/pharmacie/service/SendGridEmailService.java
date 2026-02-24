@@ -50,6 +50,10 @@ public class SendGridEmailService {
             throw new IllegalArgumentException("Les champs to, subject et body sont obligatoires.");
         }
 
+        if (!StringUtils.hasText(fromEmail)) {
+            throw new IllegalStateException("SendGrid non configure. Definir la propriete sendgrid.from.email.");
+        }
+
         SendGridGateway gateway = resolveGateway();
         if (gateway == null) {
             throw new IllegalStateException("SendGrid non configure. Definir la propriete sendgrid.api.key.");
@@ -69,7 +73,8 @@ public class SendGridEmailService {
             LOGGER.info("SendGrid response status={} body={}", statusCode, response.getBody());
 
             if (statusCode < 200 || statusCode >= 300) {
-                throw new IllegalStateException("Echec envoi email SendGrid: HTTP " + statusCode);
+                String details = response.getBody() == null ? "" : " - " + response.getBody();
+                throw new IllegalStateException("Echec envoi email SendGrid: HTTP " + statusCode + details);
             }
         } catch (IOException e) {
             LOGGER.error("Erreur technique lors de l'envoi SendGrid", e);
